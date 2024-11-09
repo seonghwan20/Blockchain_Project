@@ -12,7 +12,7 @@ def utxo_verify():
     input = data.get('input') # input 정보 받아오기 [<utxo>, <unlocking script>]
     output = data.get('output') # output 정보 받아오기 [index, <amount>, <locking script>]
     
-    with open('../UTXOes.txt', 'r') as utxo_data: # input 의 utxo가 utxo file에 존재하는지 검사
+    with open('../data/UTXOes.txt', 'r') as utxo_data: # input 의 utxo가 utxo file에 존재하는지 검사
         utxo_list = [utxo.split('#') for utxo in utxo_data.read().split('>')] # utxo 형식 : >ptxid#output_index#amount(단위: satoshi)#locking_script
         find = False # utxo의 존재 여부
         for utxo in range(utxo_list):

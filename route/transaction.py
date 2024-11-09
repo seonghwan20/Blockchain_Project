@@ -4,10 +4,10 @@ from flask import Blueprint
 
 bp = Blueprint('transaction', __name__)
 
-@bp.route('/',  method = ['GET']) # GET method로 tx처리요청 받기
+@bp.route('/transaction',  method = ['GET']) # GET method로 tx처리요청 받기
 
 def transaction():
-    with open('../mempool.txt', 'r') as tx_data: # mempool에 존재하는 tx list 받아오기
+    with open('../data/mempool.txt', 'r') as tx_data: # mempool에 존재하는 tx list 받아오기
         tx_list = [tx.split('>') for tx in tx_data.read().split('\n')] # 공백으로 tx를 구분하여 이차원 배열로 저장
         stxo_list = [] # 사용한 tx 정보는 따로 저장한 후에 utxo에서 제거
         utxo_list = [] # 새로운 utxo 정보는 따로 저장한 후에 utxo에 추가
@@ -25,7 +25,7 @@ def transaction():
                     utxo += '#' + tx_list[i][j][2] # locking script
                     utxo_list.append(utxo)
     
-    with open('../UTXOes.txt', 'r') as utxo_data: 
+    with open('../data/UTXOes.txt', 'r') as utxo_data: 
         lines = utxo_data.readlines()
         
     for i in range(len(stxo_list)): 
@@ -33,7 +33,7 @@ def transaction():
     for i in range(len(utxo_list)):
         lines += '\n' + utxo_list[i] + '\n' # utxo 맨 뒤에 방금 생성된 utxo list 추가하기
         
-    with open('../UTXOes.txt', 'w') as utxo_data:
+    with open('../data/UTXOes.txt', 'w') as utxo_data:
         utxo_data.writelines(lines) # 수정된 utxo_data로 덮어쓰기
         
     # 출력형식에 맞춰서 tx 처리 결과를 출력 (출력형식은 자유)
