@@ -47,9 +47,8 @@ class Stack:
     def HASH(self):
         if self.top is None:
             return None
-        node = self.POP
-        data_hash = hashlib.sha256(node.data) # data에 hash함수 적용
-        data_hash.hexdigest() # 16진수로 변환
+        node = self.POP()
+        data_hash = hashlib.sha256(node.data.encode('utf-8')).hexdigest() # data에 hash함수 적용
         self.PUSH(data_hash) # stack에 PUSH
         
     def EQUAL(self):
@@ -71,7 +70,7 @@ class Stack:
             return None
     
     def CHECKSIG(self, txid): # 해당 tx의 input의 utxo의 ptxid를 입력받는다.
-        if (self.top is None | self.top.next is None):
+        if (self.top is None or self.top.next is None):
             return None
         pubKey = self.POP() # Public Key
         sig = self.POP() # Signature
@@ -81,10 +80,10 @@ class Stack:
             self.PUSH(True)
         except Exception as e:
             self.PUSH(False) # 검증이 실패했다면 stack에 False를 PUSH
-            print("서명 검증 실패", str(e)) 
+            print("CHECKSIG failed", str(e)) 
             
     def CHECKSIGVERIFY(self, txid):
-        if (self.top is None | self.top.next is None):
+        if (self.top is None or self.top.next is None):
             return None
         pubKey = self.POP() # Public Key
         sig = self.POP() # Signature
@@ -92,17 +91,13 @@ class Stack:
         try:
             pubKey.verify(sig, tx_hash) # 검증이 완료됐다면 오류없이 코드 종료
         except Exception as e:
-            print("서명 검증 실패", str(e)) # 검증이 실패했다면 오류 발생
+            print("CHECKSIGVERIFY failed", str(e)) # 검증이 실패했다면 오류 발생
         
     def CHECKMULTISIG(self, txid):
         N = self.POP()
-        pubKey_list = []
-        for i in range(N):
-            pubKey_list.append(self.POP()) # N개의 Public Key 저장
+        pubKey_list = [self.POP() for _ in range(N)]  # N개의 Public Key를 stack에서 꺼내서 저장
         M = self.POP()
-        sig_list = []
-        for i in range(M):
-            sig_list.append(self.POP()) # M개의 Signature 저장
+        sig_list = [self.POP() for _ in range(M)]  # M개의 Signature를 stack에서 꺼내서 저장
         
         combinations_list = list(combinations(pubKey_list, M))
         tx_hash = find_tx_hash(txid)
@@ -115,23 +110,22 @@ class Stack:
                     try:
                         pubKey.verify(sig, tx_hash) 
                         count += 1 # 검증이 성공했다면 count += 1
+                        break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
                     except Exception as e:
                         continue
             if (count == M): # M개의 검증이 성공하면 match = True
-                self.POP(True) # stack에 True를 PUSH
+                self.PUSH(True) # stack에 True를 PUSH
                 match = True
+                break
+            
         if (match == False): # 모든 경우의 수를 확인했지만 검증이 실패했다면 stack에 False를 PUSH
-            self.POP(False)
+            self.PUSH(False)
         
     def CHECKMULTISIGVERIFY(self, txid):
         N = self.POP()
-        pubKey_list = []
-        for i in range(N):
-            pubKey_list.append(self.POP()) # N개의 Public Key 저장
+        pubKey_list = [self.POP() for _ in range(N)]  # N개의 Public Key를 stack에서 꺼내서 저장
         M = self.POP()
-        sig_list = []
-        for i in range(M):
-            sig_list.append(self.POP()) # M개의 Signature 저장
+        sig_list = [self.POP() for _ in range(M)]  # M개의 Signature를 stack에서 꺼내서 저장
         
         combinations_list = list(combinations(pubKey_list, M))
         tx_hash = find_tx_hash(txid)
@@ -144,23 +138,83 @@ class Stack:
                     try:
                         pubKey.verify(sig, tx_hash) 
                         count += 1 # 검증이 성공했다면 count += 1
+                        break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
                     except Exception as e:
                         continue
             if (count == M): # M개의 검증이 성공하면 match = True
                 match = True
-        if (match == False): # 모든 경우의 수를 확인했지만 검증이 실패했다면 return None
-            return None
+                break
+        if not match: # 모든 경우의 수를 확인했지만 검증이 실패했다면 return None
+            print("CHECKMULTISIGVERIFY failed")  # 오류 발생
             
     def CHECKFINALRESULT(self):
         if (self.top is not None and self.top.next is None and self.top.data is True):
             return True
         else:
             return False
+        
+    def script_verify(self, locking_script, unlocking_script):
+        P2SH = False
+        if locking_script[-1] == 'EQUALVERIFY': # P2SH 방식일 때
+            redeem_script = unlocking_script[-1].split(' ') # redeem script 저장
+            P2SH = True
+
+        # OP 코드를 딕셔너리에 매핑
+        OP = {
+            "DUP": Stack.DUP,
+            "HASH": Stack.HASH,
+            "EQUAL": Stack.EQUAL,
+            "EQUALVERIFY": Stack.EQUALVERIFY,
+            "CHECKSIG": Stack.CHECKSIG,
+            "CHECKSIGVERIFY": Stack.CHECKSIGVERIFY,
+            "CHECKMULTISIG": Stack.CHECKMULTISIG,
+            "CHECKMULTISIGVERIfy": Stack.CHECKMULTISIGVERIFY,
+            "CHECKFINALRESULT": Stack.CHECKFINALRESULT
+        }
+
+        # unlocking script를 stack에 PUSH
+        for data in unlocking_script:
+           self.PUSH(data)
+        
+        # locking script를 stack에 PUSH
+        for data in locking_script:
+            if data in OP:
+                OP[data](self) # OP Dictionary에서 해당 연산을 stack 객체에 적용
+            else:
+                self.PUSH(data) # data일 경우, stack에 PUSH
+                
+        if P2SH: # P2SH 형식이며, locking script의 EQUALVERIFY도 무사히 통과했을 경우
+            i = 0
+            while i < len(redeem_script):
+                data = redeem_script[i] 
+                if data == 'IF': # data가 IF일 경우
+                    if self.POP().data == True: # top.data가 True일 경우
+                        i += 1 # IF 뒤의 script를 실행한다
+                        continue
+                    else: # top.data가 False일 경우
+                        while data not in ['ELSE', 'ENDIF']: # ELSE or ENDIF가 나올 때 까지 진행
+                            i += 1
+                            data = redeem_script[i]
+                        i += 1 # 그 다음 script부터 실행한다.
+                        continue
+                elif data == 'ENDIF': # data가 ENDIF일 경우
+                    i += 1
+                    if i == len(redeem_script): # redeem script가 끝났으면 결과 값 리턴
+                        return self
+                    else: # 코드가 더 있을 경우 계속 진행
+                        continue
+                elif data in OP: # data가 operator일 때
+                    OP[data](self)
+                else: # data가 일반 data일 때
+                    self.PUSH(data)
+                i += 1
+                
+        return self
+
 
 def find_tx_hash(txid):
     with open('/data/mempool.txt', 'r') as mempool: # mempool에서 utxo를 포함하는 tx의 내용 찾기
         tx_data = mempool.read().split('\n\n') # Blank line으로 구분해서 저장한 후
-        tx = [tx for tx in tx_data if txid == tx_data[0]] # txid가 일치하는 tx 내용을 저장 
-        tx_hash = hashlib.sha256(tx[0])
+        tx = [tx for tx in tx_data if tx_data.split('\n')[0] == txid] # txid가 일치하는 tx 내용을 저장 
+        tx_hash = hashlib.sha256(tx[0].encode('utf-8')).hexdigest() # hash값으로 변환
         return tx_hash
-        
