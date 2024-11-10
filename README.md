@@ -18,13 +18,13 @@ As an educational project aimed at **enhancing understanding of course material*
 it focuses on implementing core functionality with a simplified approach, 
 including assumptions and constraints to reduce complexity.
 
-## ⚙️ Features
+## ⚙️ Key Features
 
 - **UTXO Verification** (`utxo_verify.py`)  
-  - Verifies if received transactions are spendable within the UTXO set.
+  - Verifies the validity of received transactions within the UTXO set.
 
 - **Transaction Processing** (`transaction.py`)  
-  - Processes verified transactions to update the UTXO set.
+  - Executes verified transactions from the mempool, adding their outputs to the UTXO set, removing spent UTXOs, and recording used transactions in the STXO set.
 
 - **Main Full Node** (`fullnode.py`)  
   - Integrates all route functions, forming the main process of the blockchain network.
@@ -37,6 +37,10 @@ including assumptions and constraints to reduce complexity.
 ```plaintext
 Blockchain_Project/
 ├── fullnode.py               # Main Flask application file
+├── parsing.py                # Parses and processes incoming transaction requests
+├── query.py                  # Processes and sends transaction query requests to the main node (fullnode.py)
+├── stack_operator.py         # Manages stack operations for script instructions (OP codes)
+├── txid_function.py          # Generates transaction IDs (txid)   
 ├── route/                    # Folder for route management
 │   ├── __init__.py           # Blueprint initialization file
 │   ├── transaction.py        # Transaction processing route
@@ -69,10 +73,15 @@ cd Blockchain_Project
 
 ### 2. Install Required Packages
 
-This project requires Flask and Python 3.
+This project requires Flask and ECDSA
+
+- **Flask**: A lightweight web framework for Python, used in this project for handling HTTP requests, managing routes, and creating endpoints for blockchain interactions. Flask’s modularity allows the project to define routes efficiently and manage server-side processes for the blockchain node.
+  
+- **ecdsa**: A Python library implementing the Elliptic Curve Digital Signature Algorithm, essential for generating and verifying digital signatures within blockchain transactions. This is used to ensure transaction authenticity and integrity by signing transactions and verifying their signatures, which is fundamental to secure transaction processing.
 
 ```bash
 pip install Flask
+pip install ECDSA
 ```
 
 ### 3. Start the Server
@@ -98,14 +107,15 @@ In a web browser, go to `http://localhost:5000` to test the blockchain full node
 ## 🔨 Code Overview
 
 - **`fullnode.py`**
-  - Flask Application: Integrates all routes, forming the main process of the full node.
-  - Blueprint Registration: Registers routes defined in `utxo_verify.py` and `transaction.py` as Blueprints.
+  - Flask Application: Manages the main processes of the full node, integrating all route endpoints.
+  - Blueprint Registration: Registers routes defined in `utxo_verify.py` and `transaction.py` as Blueprints for modular route management.
 
 - **`route/utxo_verify.py`**
-  - **UTXO Verification**: Checks if a transaction is spendable within the UTXO set and returns the validity result.
+  - **UTXO Verification**: Validates whether a transaction can spend specific UTXOs within the UTXO set and returns the verification result.
 
 - **`route/transaction.py`**
-  - **Transaction Processing**: Processes verified transactions to update the UTXO set.
+  - **Transaction Execution**: Executes validated transactions from the mempool, adding their outputs to the UTXO set, removing spent UTXOs, and recording spent transactions in the STXO set (`transaction.txt`).
+
 
 ## 🛠 Tech Stack
 
