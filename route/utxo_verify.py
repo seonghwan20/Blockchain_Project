@@ -6,7 +6,7 @@ from parsing import parse_transaction
 
 bp = Blueprint('utxo_verify', __name__)
 
-@bp.route('/utxo_verify', methods = ['POST']) # POST method로 tx의 body 받아오기
+@bp.post('/utxo_verify') # POST method로 tx의 body 받아오기
 
 def utxo_verify():
     data = request.get_json() # Json data 받아오기
