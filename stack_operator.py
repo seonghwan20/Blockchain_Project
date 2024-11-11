@@ -75,11 +75,13 @@ class Stack:
         pubKey = self.POP() # Public Key
         sig = self.POP() # Signature
         try:
-            pubKey.verify(sig, txid) # 검증이 완료됐다면 stack에 True를 PUSH
-            self.PUSH(True)
+            if sig_verify(sig, pubKey, txid): # 검증이 완료됐다면 stack에 True를 PUSH
+                self.PUSH(True)
+            else:
+                self.PUSH(False) # 검증이 실패했다면 stack에 False를 PUSH    
         except Exception as e:
-            self.PUSH(False) # 검증이 실패했다면 stack에 False를 PUSH
-            print("CHECKSIG failed", str(e)) 
+            self.PUSH(False) # 검증에 오류가 발생했다면 stack에 False를 PUSH
+            print("CHECKSIG Error", str(e)) 
             
     def CHECKSIGVERIFY(self, txid):
         if (self.top is None or self.top.next is None):
@@ -87,9 +89,13 @@ class Stack:
         pubKey = self.POP() # Public Key
         sig = self.POP() # Signature
         try:
-            pubKey.verify(sig, txid) # 검증이 완료됐다면 오류없이 코드 종료
+            if sig_verify(sig, pubKey, txid): # 검증이 완료됐다면 stack에 True를 PUSH
+                self.PUSH(True)
+            else:
+                self.PUSH(False) # 검증이 실패했다면 stack에 False를 PUSH    
         except Exception as e:
-            print("CHECKSIGVERIFY failed", str(e)) # 검증이 실패했다면 오류 발생
+            self.PUSH(False) # 검증에 오류가 발생했다면 stack에 False를 PUSH
+            print("CHECKSIGVERIFY Error", str(e)) 
         
     def CHECKMULTISIG(self, txid):
         N = self.POP()
@@ -105,10 +111,13 @@ class Stack:
             for sig in sig_list:
                 for pubKey in comb:
                     try:
-                        pubKey.verify(sig, txid) 
-                        count += 1 # 검증이 성공했다면 count += 1
-                        break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
+                        if sig_verify(sig, pubKey, txid) :
+                            count += 1 # 검증이 성공했다면 count += 1
+                            break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
+                        else:
+                            continue
                     except Exception as e:
+                        print("CHECKMULTISIG Error", str(e))
                         continue
             if (count == M): # M개의 검증이 성공하면 match = True
                 self.PUSH(True) # stack에 True를 PUSH
@@ -132,10 +141,13 @@ class Stack:
             for sig in sig_list:
                 for pubKey in comb:
                     try:
-                        pubKey.verify(sig, txid) 
-                        count += 1 # 검증이 성공했다면 count += 1
-                        break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
+                        if sig_verify(sig, pubKey, txid) :
+                            count += 1 # 검증이 성공했다면 count += 1
+                            break  # 검증이 성공하면 해당 Public Key 조합 내 다른 Public Key는 건너뜀
+                        else:
+                            continue
                     except Exception as e:
+                        print("CHECKMULTISIG Error", str(e))
                         continue
             if (count == M): # M개의 검증이 성공하면 match = True
                 match = True
@@ -206,3 +218,15 @@ class Stack:
                 i += 1
                 
         return self
+    
+def sig_verify(sig, pubKey, txid):
+    sig_bytes = bytes.fromhex(sig) # hex로 받은 데이터를 bytes 형식으로 변환
+    pubKey_bytes = bytes.fromhex(pubKey)
+    txid_bytes = bytes.fromhex(txid)
+    
+    signature = ecdsa.SigningKey.from_string(sig_bytes, curve = ecdsa.SECP256k1) # Key 객체로 복원
+    public_key = ecdsa.VerifyingKey.from_string(pubKey_bytes, curve = ecdsa.SECP256k1)
+    
+    is_valid = public_key.verify(signature, txid_bytes)
+    
+    return is_valid
