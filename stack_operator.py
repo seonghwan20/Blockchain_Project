@@ -227,6 +227,6 @@ def sig_verify(sig, pubKey, txid):
     signature = ecdsa.SigningKey.from_string(sig_bytes, curve = ecdsa.SECP256k1) # Key 객체로 복원
     public_key = ecdsa.VerifyingKey.from_string(pubKey_bytes, curve = ecdsa.SECP256k1)
     
-    is_valid = public_key.verify(signature, txid_bytes)
+    is_valid = public_key.verify(signature, txid_bytes) # 검증 결과 리턴
     
     return is_valid
