@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .output-container {
+            margin-top: 15px;
+        }
+        .output {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+        .remove-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Transaction Information</h2>
+        <form id="txForm">
+            <!-- Input Fields -->
+            <label>Input Information</label>
+            <input type="text" id="ptxid" placeholder="PTXID" required>
+            <input type="number" id="outputIndex" placeholder="Output Index" required>
+            <input type="number" id="amount" placeholder="Amount (satoshi)" required>
+            <input type="text" id="lockingScript" placeholder="Locking Script" required>
+
+            <!-- Output Fields -->
+            <div class="output-container">
+                <label>Output Information</label>
+                <div id="outputList">
+                    <!-- Output fields will be added here -->
+                </div>
+                <button type="button" onclick="addOutput()">Add Output</button>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="button" onclick="submitTx()">Submit Transaction</button>
+        </form>
+    </div>
+
+    <script>
+        // Add a new output field set
+        function addOutput() {
+            const outputList = document.getElementById("outputList");
+            const div = document.createElement("div");
+            div.classList.add("output");
+
+            div.innerHTML = `
+                <input type="number" placeholder="Output Index" required>
+                <input type="number" placeholder="Amount (satoshi)" required>
+                <input type="text" placeholder="Locking Script" required>
+                <button type="button" class="remove-btn" onclick="removeOutput(this)">Remove</button>
+            `;
+            outputList.appendChild(div);
+        }
+
+        // Remove an output field set
+        function removeOutput(button) {
+            button.parentElement.remove();
+        }
+
+        // Collect input and output data and send it to the server
+        function submitTx() {
+            // Collect input data
+            const txData = {
+                input: {
+                    ptxid: document.getElementById("ptxid").value,
+                    output_index: document.getElementById("outputIndex").value,
+                    amount: document.getElementById("amount").value,
+                    locking_script: document.getElementById("lockingScript").value
+                },
+                output: []
+            };
+
+            // Collect output data
+            const outputList = document.getElementById("outputList").children;
+            for (let output of outputList) {
+                const outputIndex = output.children[0].value;
+                const amount = output.children[1].value;
+                const lockingScript = output.children[2].value;
+                txData.output.push({
+                    output_index: outputIndex,
+                    amount: amount,
+                    locking_script: lockingScript
+                });
+            }
+
+            // Send transaction data to server via POST request
+            fetch('/utxo_verify/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(txData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Transaction Submitted: " + JSON.stringify(data));
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
