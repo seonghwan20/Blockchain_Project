@@ -6,10 +6,11 @@ from parsing import parse_transaction
 
 bp = Blueprint('utxo_verify', __name__)
 
-@bp.post('/utxo_verify') # POST method로 tx의 body 받아오기
+@bp.post('/') # POST method로 tx의 body 받아오기
 
 def utxo_verify():
     data = request.get_json() # Json data 받아오기
+    print('utxo_verify')
     valid_tx = [] # 검증 과정을 통과한 tx들 저장 후 mempool에 추가
     response_log = [] # response 내용 저장 후 return
     
@@ -20,12 +21,12 @@ def utxo_verify():
         print(error_message) # 오류 메세지
         response_log.append(error_message)
     
-    with open('../data/UTXOes.txt', 'r') as utxo_data: # input 의 utxo가 utxo file에 존재하는지 검사
+    with open("./data/UTXOes.txt", 'r') as utxo_data: # input 의 utxo가 utxo file에 존재하는지 검사
         utxo_list = utxo_data.read().split('\n\n') # utxo 형식 : ptxid#output_index#amount(단위: satoshi)#locking_script
         utxo_data_list = []
         
         for utxo in utxo_list: # utxo data를 파싱해서 리스트로 저장
-            utxo_data = utxo_data.split('#')
+            utxo = utxo.split('#')
             utxo_data_list.append(utxo_data)
             
         for transaction_data in transaction_list:
@@ -86,7 +87,7 @@ def utxo_verify():
                 continue
     
     # 이 tx를 유효한 tx로 판정하고 mempool에 추가 (tx 실행은 추후에 요청이 들어오면 수행.)
-    with open('../data/mempool.txt', 'a') as mempool:
+    with open('./data/mempool.txt', 'a') as mempool:
         for txid, transaction in valid_tx:
             # txid 저장
             mempool.write(f"{txid}\n")
