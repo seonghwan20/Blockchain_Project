@@ -15,49 +15,46 @@ def utxo_verify():
     response_log = [] # response 내용 저장 후 return
     
     try:
-        transaction_list = parse_transaction(data)
+        transaction_list = parse_transaction(data) # (txid, transaction_data) 형태로 리
     except Exception as e:
         error_message = f"parsing error: {str(e)}"
         print(error_message) # 오류 메세지
         response_log.append(error_message)
     
     with open("./data/UTXOes.txt", 'r') as utxo_data: # input 의 utxo가 utxo file에 존재하는지 검사
-        utxo_list = utxo_data.read().split('\n\n') # utxo 형식 : ptxid#output_index#amount(단위: satoshi)#locking_script
-        utxo_data_list = []
-        
-        for utxo in utxo_list: # utxo data를 파싱해서 리스트로 저장
-            utxo = utxo.split('#')
-            utxo_data_list.append(utxo_data)
-            
+        utxo_list = utxo_data.read().split('\n\n')
         for transaction_data in transaction_list:
             try:
-                txid = transaction_data[0]
-                transaction = transaction_data[1]
-                find = False # utxo의 존재 여부
-                input = transaction.get("input")[0] # input dictionary data 받아오기
-                outputs = transaction.get("outputs") # output dictionary data 받아오기
-                unlocking_script = input.get("unlocking_script").split(' ') # unlocking script 파싱해서 저장
-                input_utxo = input.get("utxo") # utxo data 받아오기
-                _, input_utxo = input_utxo.split('>')
-                input_utxo = input_utxo.split('#')
+                transaction = transaction_data.split('\n')
+                txid = transaction[0] # txid 
+                input = transaction[1].split('#') # ptxid#output_index#amount#locking_script#unlocking_script
+                outputs = transaction[2:] # output_index#amount#locking_script
                 
-                for utxo in utxo_data_list: # [0] : ptxid, [1] : output index, [2] : amount, [3] : locking script
-                    if (utxo[0] == input_utxo[0] and utxo[1] == input_utxo[1] and utxo[2] >= input_utxo[2]): # utxo 내에 txid와 output index가 전부 일치하는 tx가 존재하고, 그 금액이 input의 amount보다 크다면
-                        find = True # utxo 존재
-                        locking_script = utxo[3].split(' ') # utxo의 locking script(uxto[3])와 input의 unlocking script(input[1])를 연계하여 순차적으로 실행
-                        stack = Stack()
-                        stack = stack.script_verify(locking_script, unlocking_script)
-                        result = stack.CHECKFINALRESULT() # 모든 검증 과정을 통과하면 mempool에 tx 추가
-                        if not result:
-                            error = "incorrect script" # script error
-                            log_message = toString_tx_data(txid, transaction, False, error)
-                            print(log_message)
-                            response_log.append(log_message)
-                            continue
+                for utxo_data in utxo_list:
+                    utxo = utxo_data.split('\n')
+                    ptxid = utxo[0] # txid
+                    utxo_input = utxo[1].split('#') # ptxid#output_index#amount#locking_script#
+                    utxo_output = [] # output_index#amount#locing_script
+                    for i in range(2, len(utxo)):
+                        utxo_output.append(utxo[i].split('#')) # output_index#amount#locking_script
+                    for utxo_output in utxo_output:
+                        if (ptxid == input[0] and utxo_output == input[1:4]): # utxo 내에 input_utxo와 일치하는 utxo가 존재하면
+                            find = True # utxo 존재
+                            locking_script = input[3].split(' ') # utxo의 locking script와 input의 unlocking script를 연계하여 순차적으로 실행
+                            unlocking_script = input[4].split(' ')
+                            stack = Stack()
+                            stack = stack.script_verify(locking_script, unlocking_script)
+                            result = stack.CHECKFINALRESULT() # 모든 검증 과정을 통과하면 mempool에 tx 추가
+                            if not result:
+                                error = "incorrect script" # script error
+                                log_message = toString_tx_data(txid, data, False, error)
+                                print(log_message)
+                                response_log.append(log_message)
+                                continue
                         
                 if not find: # uxto가 존재하지 않는다면
                     error = "UTXO not found" # UTXO error
-                    log_message = toString_tx_data(txid, transaction, False, error)
+                    log_message = toString_tx_data(txid, data, False, error)
                     print(log_message)
                     response_log.append(log_message)
                     continue
@@ -65,20 +62,20 @@ def utxo_verify():
                 total_output_amount = 0
             
                 for output in outputs:
-                    total_output_amount += int(output.get("amount"))
+                    total_output_amount += int(output.split('#')[1])
                 
-                if not (int(input_utxo[2]) == total_output_amount):
+                if not (input[2] == total_output_amount):
                     error = "amount error"
-                    log_message = toString_tx_data(txid, transaction, False, error)
+                    log_message = toString_tx_data(txid, data, False, error)
                     print(log_message)
                     response_log.append(log_message)
                     continue
                     
                 # 이 검증을 모두 통과하면 mempool에 추가
-                log_message = toString_tx_data(txid, transaction, True)
+                log_message = toString_tx_data(txid, data, True)
                 print(log_message)
                 response_log.append(log_message)
-                valid_tx.append((txid, transaction))
+                valid_tx.append((transaction))
             except Exception as e:
                 # 원인 불명의 오류 발생
                 error_message = f"Transaction verification error: {str(e)}"
@@ -88,20 +85,9 @@ def utxo_verify():
     
     # 이 tx를 유효한 tx로 판정하고 mempool에 추가 (tx 실행은 추후에 요청이 들어오면 수행.)
     with open('./data/mempool.txt', 'a') as mempool:
-        for txid, transaction in valid_tx:
-            # txid 저장
-            mempool.write(f"{txid}\n")
-            
-            # input 저장 (각 필드를 '#'로 구분)
-            tx_input = transaction["inputs"][0]
-            mempool.write(f"{tx_input['utxo']}#{tx_input['unlocking_script']}\n")
-            
-            # output 저장 (각 필드를 '#'로 구분, 여러 개의 output을 순차적으로 저장)
-            for tx_output in transaction["outputs"]:
-                mempool.write(f"{tx_output['output_index']}#{tx_output['amount']}#{tx_output['locking_script']}\n")
-            
-            # transaction 간 Blank line 추가
-            mempool.write("\n")
+        for transaction in valid_tx:
+            mempool.write(transaction)
+            mempool.write('\n')
     
     # 반환할 결과를 JSON 형태로 변환하여 클라이언트에 응답
     return jsonify({"logs": response_log}), 200
