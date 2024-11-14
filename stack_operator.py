@@ -47,8 +47,9 @@ class Stack:
     def HASH(self):
         if self.top is None:
             return None
+        print("여긴가?")
         node = self.POP()
-        data_hash = hashlib.sha256(node.data.encode('utf-8')).hexdigest() # data에 hash함수 적용
+        data_hash = hashlib.sha256(node.encode('utf-8')).hexdigest() # data에 hash함수 적용
         self.PUSH(data_hash) # stack에 PUSH
         
     def EQUAL(self):
@@ -161,11 +162,11 @@ class Stack:
         else:
             return False
         
-    def script_verify(self, locking_script, unlocking_script):
-        P2SH = False
-        if locking_script[-1] == 'EQUALVERIFY': # P2SH 방식일 때
-            redeem_script = unlocking_script[-1].split(' ') # redeem script 저장
-            P2SH = True
+    def script_verify(self, locking_script, unlocking_script, txid):
+        # P2SH = False
+        # if locking_script[-1] == 'EQUALVERIFY': # P2SH 방식일 때
+        #     redeem_script = unlocking_script[-1].split(' ') # redeem script 저장
+        #     P2SH = True
 
         # OP 코드를 딕셔너리에 매핑
         OP = {
@@ -176,57 +177,63 @@ class Stack:
             "CHECKSIG": Stack.CHECKSIG,
             "CHECKSIGVERIFY": Stack.CHECKSIGVERIFY,
             "CHECKMULTISIG": Stack.CHECKMULTISIG,
-            "CHECKMULTISIGVERIfy": Stack.CHECKMULTISIGVERIFY,
+            "CHECKMULTISIGVERIFY": Stack.CHECKMULTISIGVERIFY,
             "CHECKFINALRESULT": Stack.CHECKFINALRESULT
         }
 
         # unlocking script를 stack에 PUSH
-        for data in unlocking_script:
+        unlocking_script_data = unlocking_script.split(' ')
+        for data in unlocking_script_data:
            self.PUSH(data)
         
+        locking_script_data = locking_script.split(' ')
         # locking script를 stack에 PUSH
-        for data in locking_script:
+        for data in locking_script_data:
             if data in OP:
-                OP[data](self) # OP Dictionary에서 해당 연산을 stack 객체에 적용
+                if data in ["CHECKSIG", "CHECKSIGVERIFY", "CHECKMULTISIG", "CHECKMULTISIGVERIFY"]:
+                    OP[data](self, txid)
+                else:
+                    OP[data](self) # OP Dictionary에서 해당 연산을 stack 객체에 적용
             else:
                 self.PUSH(data) # data일 경우, stack에 PUSH
                 
-        if P2SH: # P2SH 형식이며, locking script의 EQUALVERIFY도 무사히 통과했을 경우
-            i = 0
-            while i < len(redeem_script):
-                data = redeem_script[i] 
-                if data == 'IF': # data가 IF일 경우
-                    if self.POP().data == True: # top.data가 True일 경우
-                        i += 1 # IF 뒤의 script를 실행한다
-                        continue
-                    else: # top.data가 False일 경우
-                        while data not in ['ELSE', 'ENDIF']: # ELSE or ENDIF가 나올 때 까지 진행
-                            i += 1
-                            data = redeem_script[i]
-                        i += 1 # 그 다음 script부터 실행한다.
-                        continue
-                elif data == 'ENDIF': # data가 ENDIF일 경우
-                    i += 1
-                    if i == len(redeem_script): # redeem script가 끝났으면 결과 값 리턴
-                        return self
-                    else: # 코드가 더 있을 경우 계속 진행
-                        continue
-                elif data in OP: # data가 operator일 때
-                    OP[data](self)
-                else: # data가 일반 data일 때
-                    self.PUSH(data)
-                i += 1
-                
+        # if P2SH: # P2SH 형식이며, locking script의 EQUALVERIFY도 무사히 통과했을 경우
+        #     i = 0
+        #     while i < len(redeem_script):
+        #         data = redeem_script[i] 
+        #         if data == 'IF': # data가 IF일 경우
+        #             if self.POP().data == True: # top.data가 True일 경우
+        #                 i += 1 # IF 뒤의 script를 실행한다
+        #                 continue
+        #             else: # top.data가 False일 경우
+        #                 while data not in ['ELSE', 'ENDIF']: # ELSE or ENDIF가 나올 때 까지 진행
+        #                     i += 1
+        #                     data = redeem_script[i]
+        #                 i += 1 # 그 다음 script부터 실행한다.
+        #                 continue
+        #         elif data == 'ENDIF': # data가 ENDIF일 경우
+        #             i += 1
+        #             if i == len(redeem_script): # redeem script가 끝났으면 결과 값 리턴
+        #                 return self
+        #             else: # 코드가 더 있을 경우 계속 진행
+        #                 continue
+        #         elif data in OP: # data가 operator일 때
+        #             OP[data](self)
+        #         else: # data가 일반 data일 때
+        #             self.PUSH(data)
+        #         i += 1
+        
+        
+        
         return self
     
 def sig_verify(sig, pubKey, txid):
     sig_bytes = bytes.fromhex(sig) # hex로 받은 데이터를 bytes 형식으로 변환
     pubKey_bytes = bytes.fromhex(pubKey)
     txid_bytes = bytes.fromhex(txid)
-    
-    signature = ecdsa.SigningKey.from_string(sig_bytes, curve = ecdsa.SECP256k1) # Key 객체로 복원
+
     public_key = ecdsa.VerifyingKey.from_string(pubKey_bytes, curve = ecdsa.SECP256k1)
-    
-    is_valid = public_key.verify(signature, txid_bytes) # 검증 결과 리턴
+
+    is_valid = public_key.verify(sig_bytes, txid_bytes) # 검증 결과 리턴
     
     return is_valid

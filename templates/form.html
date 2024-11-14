@@ -1,169 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transaction Form</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            width: 100%;
-        }
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-        .output-container {
-            margin-top: 15px;
-        }
-        .output {
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-        button {
-            margin-top: 15px;
-            padding: 10px;
-            width: 100%;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        button:disabled {
-            background-color: #ccc;
-        }
-        .remove-btn {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 5px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-top: 5px;
-        }
-    </style>
+    <title>UTXO 및 Output 데이터 입력</title>
 </head>
 <body>
-    <div class="container">
-        <h2>Transaction Information</h2>
-        <form id="txForm">
-            <!-- Input Fields -->
-            <label>Input Information</label>
-            <input type="text" id="ptxid" placeholder="PTXID" required>
-            <input type="number" id="outputIndex" placeholder="Output Index" required>
-            <input type="number" id="amount" placeholder="Amount (satoshi)" required>
-            <input type="text" id="unlockingScript" placeholder="Unlocking Script" required>
+    <h2>Transactions</h2>
+    <div id="transactionContainer">
+        <div class="transaction">
+            <h3>Input</h3>
+            <label for="txid">TXID:</label>
+            <input type="text" class="txid" required><br><br>
 
-            <!-- Output Fields -->
-            <div class="output-container">
-                <label>Output Information</label>
-                <div id="outputList">
-                    <!-- Output fields will be added here -->
+            <label for="outputIndex">Output Index:</label>
+            <input type="number" class="output_index" required><br><br>
+
+            <label for="unlockingScript">Unlocking Script:</label>
+            <input type="text" class="unlocking_script" required><br><br>
+
+            <h3>Outputs</h3>
+            <div class="outputsContainer">
+                <div class="output">
+                    <label for="amount">Amount:</label>
+                    <input type="number" class="amount" required><br><br>
+
+                    <label for="lockingScript">Locking Script:</label>
+                    <input type="text" class="locking_script" required><br><br>
                 </div>
-                <button type="button" onclick="addOutput()">Add Output</button>
             </div>
-
-            <!-- Submit Button -->
-            <button type="button" onclick="submitTx()">Submit Transaction</button>
-        </form>
+            <button type="button" onclick="addOutput(this)">Add Output</button>
+        </div>
     </div>
 
+    <button type="button" onclick="addTransaction()">Add Transaction</button>
+    <button type="button" onclick="submitTransactions()">Submit All</button>
+
+    <h2>Result</h2>
+    <pre id="result"></pre>
+
     <script>
-        // Add a new output field set
-        function addOutput() {
-            const outputList = document.getElementById("outputList");
-            const div = document.createElement("div");
-            div.classList.add("output");
+        // 트랜잭션 추가 함수
+        function addTransaction() {
+            const transactionContainer = document.getElementById("transactionContainer");
+            const newTransaction = document.createElement("div");
+            newTransaction.className = "transaction";
+            newTransaction.innerHTML = `
+                <h3>Input</h3>
+                <label for="txid">TXID:</label>
+                <input type="text" class="txid" required><br><br>
 
-            div.innerHTML = `
-                <input type="number" placeholder="Output Index" required>
-                <input type="number" placeholder="Amount (satoshi)" required>
-                <input type="text" placeholder="Locking Script" required>
-                <button type="button" class="remove-btn" onclick="removeOutput(this)">Remove</button>
+                <label for="outputIndex">Output Index:</label>
+                <input type="number" class="output_index" required><br><br>
+
+                <label for="unlockingScript">Unlocking Script:</label>
+                <input type="text" class="unlocking_script" required><br><br>
+
+                <h3>Outputs</h3>
+                <div class="outputsContainer">
+                    <div class="output">
+                        <label for="amount">Amount:</label>
+                        <input type="number" class="amount" required><br><br>
+
+                        <label for="lockingScript">Locking Script:</label>
+                        <input type="text" class="locking_script" required><br><br>
+                    </div>
+                </div>
+                <button type="button" onclick="addOutput(this)">Add Output</button>
             `;
-            outputList.appendChild(div);
+            transactionContainer.appendChild(newTransaction);
         }
 
-        // Remove an output field set
-        function removeOutput(button) {
-            button.parentElement.remove();
+        // Output 추가 함수
+        function addOutput(button) {
+            const outputsContainer = button.previousElementSibling;  // outputsContainer를 찾아서 새로운 output을 추가
+            const newOutput = document.createElement("div");
+            newOutput.className = "output";
+            newOutput.innerHTML = `
+                <label for="amount">Amount:</label>
+                <input type="number" class="amount" required><br><br>
+
+                <label for="lockingScript">Locking Script:</label>
+                <input type="text" class="locking_script" required><br><br>
+            `;
+            outputsContainer.appendChild(newOutput);
         }
 
-        // Collect input and output data and send it to the server
-        function submitTx() {
+        // 모든 트랜잭션을 배열 형태로 수집하고 서버로 전송
+        async function submitTransactions() {
             const transactions = [];
+            const transactionElements = document.getElementsByClassName("transaction");
 
-            // Collect input data
-            const txData = {
-                input: {
-                    utxo : {
-                        ptxid: document.getElementById("ptxid").value,
-                        output_index: document.getElementById("outputIndex").value,
-                        amount: document.getElementById("amount").value
+            for (let transactionElement of transactionElements) {
+                // Input 데이터 수집
+                const txid = transactionElement.querySelector(".txid").value;
+                const output_index = parseInt(transactionElement.querySelector(".output_index").value);
+                const unlocking_script = transactionElement.querySelector(".unlocking_script").value;
+
+                // Output 데이터 수집
+                const outputs = [];
+                const outputElements = transactionElement.getElementsByClassName("output");
+                for (let outputElement of outputElements) {
+                    const amount = parseFloat(outputElement.querySelector(".amount").value);
+                    const locking_script = outputElement.querySelector(".locking_script").value;
+                    outputs.push({
+                        amount: amount,
+                        locking_script: locking_script
+                    });
+                }
+
+                // 트랜잭션 객체 생성
+                transactions.push({
+                    input: {
+                        ptxid: txid,
+                        output_index: output_index,
+                        unlocking_script: unlocking_script
                     },
-                    unlocking_script: document.getElementById("unlockingScript").value
-                },
-                outputs: []
-            };
-
-            // Collect output data
-            const outputList = document.getElementById("outputList").children;
-            for (let output of outputList) {
-                const outputIndex = output.children[0].value;
-                const amount = output.children[1].value;
-                const lockingScript = output.children[2].value;
-                txData.outputs.push({
-                    output_index: outputIndex,
-                    amount: amount,
-                    locking_script: lockingScript
+                    outputs: outputs
                 });
             }
 
-            // txdata를 transaction list에 추가
-            transactions.push(txData);
+            // 서버에 데이터 전송
+            try {
+                const response = await fetch('http://localhost:5000/utxo_verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(transactions)
+                });
 
-            // Send transaction data to server via POST request
-            fetch('/utxo_verify/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(transactions)
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert("Transaction Submitted: " + JSON.stringify(data));
-            })
-            .catch(error => console.error('Error:', error));
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    document.getElementById('result').textContent = 'Error: ' + response.statusText;
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
         }
     </script>
 </body>
